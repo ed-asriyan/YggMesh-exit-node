@@ -53,7 +53,7 @@ YggMesh nodes accept the domain in `CLEARNET_EXITS` instead of the address. With
 > Never run two Yggdrasil nodes with the same `YGG_PRIV_KEY`. They get the same address, and the traffic of the YggMesh nodes goes to whichever of them the network finds, possibly one without NAT64.
 
 ## Connecting a YggMesh network (NAT64)
-Build the [YggMesh](https://github.com/ed-asriyan/YggMesh) firmware with `CLEARNET_EXITS` set to the Yggdrasil address from step 3 or the domain from step 4 (several exits can be listed, in order of preference). If `EXIT_USERS` is set, add the Yggdrasil address of every node to it.
+Build the [YggMesh](https://github.com/ed-asriyan/YggMesh) firmware with `CLEARNET_EXITS` set to the Yggdrasil address from step 3 or the domain from step 4 (several exits can be listed: each node uses the fastest working one). If `EXIT_USERS` is set, add the Yggdrasil address of every node to it.
 
 How it works: a YggMesh node translates its clients' IPv4 packets into IPv6 packets addressed to `<this exit's Yggdrasil /64 subnet>::<IPv4 address>`. Yggdrasil routes the subnet to this exit, where TAYGA translates the packets back into IPv4 and they leave from the server's IP. Nothing but the Yggdrasil address has to be shared.
 
