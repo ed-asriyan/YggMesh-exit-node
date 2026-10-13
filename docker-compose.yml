@@ -9,6 +9,10 @@ services:
       - /dev/net/tun:/dev/net/tun
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=0
+      # This container owns the network namespace shared by all services,
+      # forwarding is required by the NAT64 service
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.forwarding=1
     environment:
       - YGG_PRIV_KEY=${YGG_PRIV_KEY:?YGG_PRIV_KEY is required}
       - YGG_PEERS=${YGG_PEERS:?YGG_PEERS is required}
@@ -38,11 +42,23 @@ services:
         
         exec yggdrasil -useconffile /etc/yggdrasil/yggdrasil.conf
 
-  socks5:
-    image: vimagick/microsocks:latest
+  # NAT64 exit for YggMesh nodes (CLEARNET_EXITS build input of YggMesh), see
+  # nat64.sh. The NAT64 prefix is this node's Yggdrasil /64 subnet followed by
+  # 32 zero bits: <subnet>::a.b.c.d is translated to the IPv4 address a.b.c.d.
+  nat64:
+    image: ghcr.io/ed-asriyan/yggdrasil-clearnet-proxy:latest
+    # Only "latest" is published, so always check for a newer one on "up"
+    pull_policy: always
     restart: unless-stopped
     network_mode: "service:yggdrasil"
-    command: "-p 1080 -i ::"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      # Space-separated Yggdrasil addresses (200::/8) of the YggMesh nodes allowed
+      # to use this exit. Empty: everyone is allowed.
+      - EXIT_USERS=${EXIT_USERS:-}
     depends_on:
       - yggdrasil
 
