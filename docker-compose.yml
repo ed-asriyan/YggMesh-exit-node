@@ -42,14 +42,6 @@ services:
         
         exec yggdrasil -useconffile /etc/yggdrasil/yggdrasil.conf
 
-  socks5:
-    image: vimagick/microsocks:latest
-    restart: unless-stopped
-    network_mode: "service:yggdrasil"
-    command: "-p 1080 -i ::"
-    depends_on:
-      - yggdrasil
-
   # NAT64 exit for YggMesh nodes (CLEARNET_EXITS build input of YggMesh).
   # The NAT64 prefix is this node's Yggdrasil /64 subnet followed by 32 zero
   # bits: <subnet>::a.b.c.d is translated to the IPv4 address a.b.c.d.
@@ -64,7 +56,7 @@ services:
       - /dev/net/tun:/dev/net/tun
     environment:
       # Space-separated Yggdrasil addresses (200::/8) of the YggMesh nodes allowed
-      # to use this exit, through NAT64 and SOCKS5. Empty: everyone is allowed.
+      # to use this exit, through NAT64. Empty: everyone is allowed.
       - EXIT_USERS=${EXIT_USERS:-}
     depends_on:
       - yggdrasil
