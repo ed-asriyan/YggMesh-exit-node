@@ -13,6 +13,9 @@ services:
       # forwarding is required by the NAT64 service
       - net.ipv4.ip_forward=1
       - net.ipv6.conf.all.forwarding=1
+      # Ephemeral ports of the namespace's own sockets; the ports above are
+      # left to the in-kernel NAT64 (Jool, see nat64.sh)
+      - net.ipv4.ip_local_port_range=32768 40000
     environment:
       - YGG_PRIV_KEY=${YGG_PRIV_KEY:?YGG_PRIV_KEY is required}
       - YGG_PEERS=${YGG_PEERS:?YGG_PEERS is required}

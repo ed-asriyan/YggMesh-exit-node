@@ -1,5 +1,5 @@
 # Yggdrasil Clearnet Proxy
-Lightweight Docker Compose stack that runs an Yggdrasil node bundled with a NAT64 translator ([TAYGA](https://github.com/apalrd/tayga)) in a shared network namespace. It acts as an outbound internet (clearnet) exit node for [YggMesh](https://github.com/ed-asriyan/YggMesh) nodes built with `CLEARNET_EXITS`: their Wi-Fi clients get the Internet over IPv4 with no setup, any protocol (TCP, UDP, QUIC, ping).
+Lightweight Docker Compose stack that runs an Yggdrasil node bundled with a NAT64 translator ([Jool](https://nicmx.github.io/Jool/) in the kernel when the host has it, [TAYGA](https://github.com/apalrd/tayga) otherwise) in a shared network namespace. It acts as an outbound internet (clearnet) exit node for [YggMesh](https://github.com/ed-asriyan/YggMesh) nodes built with `CLEARNET_EXITS`: their Wi-Fi clients get the Internet over IPv4 with no setup, any protocol (TCP, UDP, QUIC, ping).
 
 The NAT64 image (`ghcr.io/ed-asriyan/yggdrasil-clearnet-proxy:latest`, [Dockerfile](Dockerfile), [nat64.sh](nat64.sh)) is rebuilt for `amd64` and `arm64` on every push to `master`; only `latest` is kept. The stack pulls it on every `up`.
 
@@ -55,11 +55,30 @@ YggMesh nodes accept the domain in `CLEARNET_EXITS` instead of the address. With
 ## Connecting a YggMesh network (NAT64)
 Build the [YggMesh](https://github.com/ed-asriyan/YggMesh) firmware with `CLEARNET_EXITS` set to the Yggdrasil address from step 3 or the domain from step 4 (several exits can be listed: each node uses the fastest working one). If `EXIT_USERS` is set, add the Yggdrasil address of every node to it.
 
-How it works: a YggMesh node translates its clients' IPv4 packets into IPv6 packets addressed to `<this exit's Yggdrasil /64 subnet>::<IPv4 address>`. Yggdrasil routes the subnet to this exit, where TAYGA translates the packets back into IPv4 and they leave from the server's IP. Nothing but the Yggdrasil address has to be shared.
+How it works: a YggMesh node translates its clients' IPv4 packets into IPv6 packets addressed to `<this exit's Yggdrasil /64 subnet>::<IPv4 address>`. Yggdrasil routes the subnet to this exit, where the NAT64 (Jool or TAYGA) translates the packets back into IPv4 and they leave from the server's IP. Nothing but the Yggdrasil address has to be shared.
 
 Safety: translated traffic can reach public IPv4 addresses only, private ranges (the Docker host, its networks, `10.0.0.0/8`, `192.168.0.0/16`, ...) are blocked.
 
 Restarts: if the `yggdrasil` container restarts, the NAT64 container notices within 10 seconds that its network namespace is gone and restarts too, so it joins the new one.
+
+## In-kernel NAT64 (optional, faster)
+By default the NAT64 is TAYGA, in userspace: every packet goes from the kernel to TAYGA and back. If the host has the [Jool](https://nicmx.github.io/Jool/) kernel module loaded, the NAT64 container uses it instead and the packets stay in the kernel. Nothing else changes: the address, the prefix, `EXIT_USERS` and the YggMesh nodes stay the same, old and new nodes work with both.
+
+On a Debian or Ubuntu host:
+```bash
+sudo apt install jool-dkms
+sudo modprobe jool
+echo jool | sudo tee /etc/modules-load.d/jool.conf   # load it on boot too
+```
+Then recreate the stack (the command from step 2). The log of the NAT64 container shows which one is used:
+```bash
+docker compose -p yggdrasil-clearnet-proxy logs nat64 | grep "NAT64 backend"
+```
+
+Notes:
+- The module and the `jool` tool in the image (Debian trixie, Jool 4.1.13) must be the same version. On a mismatch the container says so in its log and uses TAYGA.
+- Jool sends translated traffic from the container's own IPv4 address, from the ports above its ephemeral range (`net.ipv4.ip_local_port_range` in [docker-compose.yml](docker-compose.yml)): 25535 concurrent connections per protocol.
+- Hosts without loadable modules (e.g. Home Assistant OS) keep TAYGA.
 
 ## Publishing the image (forks)
 The [workflow](.github/workflows/image.yml) publishes `ghcr.io/<owner>/yggdrasil-clearnet-proxy:latest` with the repository's `GITHUB_TOKEN` and deletes every other version of the package. After the first run:
