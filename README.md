@@ -1,14 +1,14 @@
 # Yggdrasil Clearnet Proxy
 Lightweight Docker Compose stack that runs a [Yggdrasil-ng](https://github.com/Revertron/Yggdrasil-ng) node as an outbound internet (clearnet) exit for [YggMesh](https://github.com/ed-asriyan/YggMesh) nodes: their Wi-Fi clients get the Internet over IPv4 with no setup, any protocol (TCP, UDP, QUIC, ping).
 
-The image (`ghcr.io/ed-asriyan/yggdrasil-clearnet-proxy:latest`, [Dockerfile](Dockerfile), [exit.sh](exit.sh)) is rebuilt for `amd64` and `arm64` on every push to `master`; only `latest` is kept. The stack pulls it on every `up`.
+The image (`ghcr.io/ed-asriyan/yggmesh-exit-node:latest`, [Dockerfile](Dockerfile), [exit.sh](exit.sh)) is rebuilt for `amd64` and `arm64` on every push to `master`; only `latest` is kept. The stack pulls it on every `up`.
 
 ## 🚀 Quick Start
 ### 1. Generate an Yggdrasil Private Key
 You need a static private key: YggMesh nodes know the exit by its public key. Generate one instantly with this one-liner:
 
 ```bash
-docker run --rm --entrypoint yggdrasil ghcr.io/ed-asriyan/yggdrasil-clearnet-proxy:latest --genconf | grep private_key
+docker run --rm --entrypoint yggdrasil ghcr.io/ed-asriyan/yggmesh-exit-node:latest --genconf | grep private_key
 ```
 
 (Save the 128 hex digits, you will need them in the next step.) The public key of the exit is the last 64 of them.
@@ -22,7 +22,7 @@ You don't need to clone this repository. Run the setup directly using the raw Co
 YGG_PRIV_KEY="<YOUR_GENERATED_PRIVATE_KEY>" \
 YGG_PEERS="tcp://1.2.3.4:12345 tls://5.6.7.8:9012" \
 EXIT_USERS="<PUBLIC_KEY_OF_NODE_1> <PUBLIC_KEY_OF_NODE_2>" \
-docker compose -f <(curl -fsSL https://raw.githubusercontent.com/ed-asriyan/yggdrasil-clearnet-proxy/master/docker-compose.yml) up -d
+docker compose -f <(curl -fsSL https://raw.githubusercontent.com/ed-asriyan/yggmesh-exit-node/master/docker-compose.yml) up -d
 ```
 
 | Variable | Required | Description |
@@ -36,7 +36,7 @@ To change `EXIT_USERS` later, run the same command again with the new list: the 
 
 The container prints every user with its address:
 ```bash
-docker compose -p yggdrasil-clearnet-proxy logs exit
+docker compose -p yggmesh-exit-node logs exit
 ```
 
 > [!WARNING]
@@ -52,8 +52,8 @@ Two nodes may get the same address (about 0.1% for 100 users of one exit). The e
 Safety: the users reach public IPv4 addresses only: private ranges (the Docker host, its networks, `10.0.0.0/8`, `192.168.0.0/16`, the other users in `100.64.0.0/10`, ...) are blocked, and IPv6 is not forwarded.
 
 ## Publishing the image (forks)
-The [workflow](.github/workflows/image.yml) publishes `ghcr.io/<owner>/yggdrasil-clearnet-proxy:latest` with the repository's `GITHUB_TOKEN` and deletes every other version of the package. After the first run:
-1. Open the package (your profile → **Packages** → `yggdrasil-clearnet-proxy`) → **Package settings** and set **Change visibility** to **Public**, so servers can pull it without logging in.
+The [workflow](.github/workflows/image.yml) publishes `ghcr.io/<owner>/yggmesh-exit-node:latest` with the repository's `GITHUB_TOKEN` and deletes every other version of the package. After the first run:
+1. Open the package (your profile → **Packages** → `yggmesh-exit-node`) → **Package settings** and set **Change visibility** to **Public**, so servers can pull it without logging in.
 2. If the cleanup step fails with a permission error, give this repository the **Admin** role under **Manage Actions access** in the same settings.
 
 In a fork, also replace the image name in [docker-compose.yml](docker-compose.yml).

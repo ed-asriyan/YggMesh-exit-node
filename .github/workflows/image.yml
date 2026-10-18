@@ -1,6 +1,6 @@
 name: Build exit image
 
-# Every push to master rebuilds ghcr.io/<owner>/yggdrasil-clearnet-proxy:latest
+# Every push to master rebuilds ghcr.io/<owner>/yggmesh-exit-node:latest
 # and deletes everything else from the package: only "latest" is kept.
 on:
   push:

@@ -1,10 +1,10 @@
-name: yggdrasil-clearnet-proxy
+name: yggmesh-exit-node
 services:
   # Clearnet exit for YggMesh nodes, see exit.sh: Yggdrasil-ng routes the IPv4
   # of the nodes listed in EXIT_USERS here (Crypto-Key Routing), it leaves
   # masqueraded to the server's IP.
   exit:
-    image: ghcr.io/ed-asriyan/yggdrasil-clearnet-proxy:latest
+    image: ghcr.io/ed-asriyan/yggmesh-exit-node:latest
     # Only "latest" is published, so always check for a newer one on "up"
     pull_policy: always
     restart: unless-stopped

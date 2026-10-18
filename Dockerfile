@@ -1,6 +1,6 @@
 FROM debian:trixie-slim
 
-LABEL org.opencontainers.image.source="https://github.com/ed-asriyan/yggdrasil-clearnet-proxy"
+LABEL org.opencontainers.image.source="https://github.com/ed-asriyan/yggmesh-exit-node"
 LABEL org.opencontainers.image.description="Clearnet exit for YggMesh nodes: Yggdrasil-ng with Crypto-Key Routing"
 
 # Yggdrasil-ng (https://github.com/Revertron/Yggdrasil-ng), the static binary
