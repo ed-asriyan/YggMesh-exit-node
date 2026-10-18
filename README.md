@@ -1,24 +1,27 @@
 # Yggdrasil Clearnet Proxy
-Lightweight Docker Compose stack that runs an Yggdrasil node bundled with a NAT64 translator ([TAYGA](https://github.com/apalrd/tayga)) in a shared network namespace. It acts as an outbound internet (clearnet) exit node for [YggMesh](https://github.com/ed-asriyan/YggMesh) nodes built with `CLEARNET_EXITS`: their Wi-Fi clients get the Internet over IPv4 with no setup, any protocol (TCP, UDP, QUIC, ping).
+Lightweight Docker Compose stack that runs a [Yggdrasil-ng](https://github.com/Revertron/Yggdrasil-ng) node as an outbound internet (clearnet) exit for [YggMesh](https://github.com/ed-asriyan/YggMesh) nodes: their Wi-Fi clients get the Internet over IPv4 with no setup, any protocol (TCP, UDP, QUIC, ping).
 
-The NAT64 image (`ghcr.io/ed-asriyan/yggdrasil-clearnet-proxy:latest`, [Dockerfile](Dockerfile), [nat64.sh](nat64.sh)) is rebuilt for `amd64` and `arm64` on every push to `master`; only `latest` is kept. The stack pulls it on every `up`.
+The image (`ghcr.io/ed-asriyan/yggdrasil-clearnet-proxy:latest`, [Dockerfile](Dockerfile), [exit.sh](exit.sh)) is rebuilt for `amd64` and `arm64` on every push to `master`; only `latest` is kept. The stack pulls it on every `up`.
 
 ## 🚀 Quick Start
 ### 1. Generate an Yggdrasil Private Key
-You need a static private key so your node's IPv6 address remains constant across reboots. Generate one instantly with this one-liner:
+You need a static private key: YggMesh nodes know the exit by its public key. Generate one instantly with this one-liner:
 
 ```bash
-docker run --rm --entrypoint yggdrasil ghcr.io/yggdrasil-network/yggdrasil-go:latest -genconf | grep PrivateKey
+docker run --rm --entrypoint yggdrasil ghcr.io/ed-asriyan/yggdrasil-clearnet-proxy:latest --genconf | grep private_key
 ```
 
-(Save the output string, you will need it in the next step).
+(Save the 128 hex digits, you will need them in the next step.) The public key of the exit is the last 64 of them.
 
-### 2. Run the Mirror
+### 2. Collect the public keys of the nodes
+Every YggMesh node shows its **public key** on its YggMesh page in LuCI (below the private key). Ask the owner of every node that should use this exit for it. The owners never send their private keys.
+
+### 3. Run the exit
 You don't need to clone this repository. Run the setup directly using the raw Compose file:
 ```bash
 YGG_PRIV_KEY="<YOUR_GENERATED_PRIVATE_KEY>" \
 YGG_PEERS="tcp://1.2.3.4:12345 tls://5.6.7.8:9012" \
-EXIT_USERS="200:1111:2222:3333:4444:5555:6666:7777 201:aaaa:bbbb:cccc:dddd:eeee:ffff:1" \
+EXIT_USERS="<PUBLIC_KEY_OF_NODE_1> <PUBLIC_KEY_OF_NODE_2>" \
 docker compose -f <(curl -fsSL https://raw.githubusercontent.com/ed-asriyan/yggdrasil-clearnet-proxy/master/docker-compose.yml) up -d
 ```
 
@@ -26,40 +29,27 @@ docker compose -f <(curl -fsSL https://raw.githubusercontent.com/ed-asriyan/yggd
 | -------- | -------- | ----------- |
 | `YGG_PRIV_KEY` | Yes | Your Yggdrasil private key. |
 | `YGG_PEERS` | Yes | A space-separated list of Yggdrasil peers. *Find active public peers at [Yggdrasil Public Peers](https://publicpeers.neilalexander.dev).* |
-| `EXIT_USERS` | No | A space-separated list of Yggdrasil addresses (`200::/8`) allowed to use this exit. Every YggMesh node has its own address, so list every node. **Empty: everyone in the Yggdrasil network is allowed.** |
+| `EXIT_USERS` | Yes | A space-separated list of public keys (64 hex digits) of the YggMesh nodes allowed to use this exit. |
+| `YGG_LISTEN` | No | A space-separated list of listen URIs (e.g. `tls://0.0.0.0:443`) to accept peers directly. Publish the ports in the Compose file if you use it. |
 
-To change `EXIT_USERS` later, run the same command again with the new list: the NAT64 container is recreated, open connections of all users break for a few seconds.
+To change `EXIT_USERS` later, run the same command again with the new list: the container is recreated, open connections of all users break for a few seconds.
 
-### 3. Get your Yggdrasil IPv6 Address
-Retrieve the IPv6 address assigned to your container's tun0 interface:
+The container prints every user with its address:
 ```bash
-docker compose -p yggdrasil-clearnet-proxy logs yggdrasil | grep "Your IPv6 address is"
+docker compose -p yggdrasil-clearnet-proxy logs exit
 ```
-
-The NAT64 container prints the same address, its NAT64 prefix and the allowed users:
-```bash
-docker compose -p yggdrasil-clearnet-proxy logs nat64
-```
-
-### 4. Register in Alfis DNS (optional)
-1. Open your [Alfis GUI](https://alfis.name).
-2. Mine a new key if you haven't done it before
-3. Register your target .ygg domain.
-4. Create an AAAA record pointing to the IPv6 address obtained in Step 3.
-
-YggMesh nodes accept the domain in `CLEARNET_EXITS` instead of the address. With a domain the exit can be moved (a new server, a new key) by changing the AAAA record, without touching the nodes.
 
 > [!WARNING]
-> Never run two Yggdrasil nodes with the same `YGG_PRIV_KEY`. They get the same address, and the traffic of the YggMesh nodes goes to whichever of them the network finds, possibly one without NAT64.
+> Never run two Yggdrasil nodes with the same `YGG_PRIV_KEY`. They are the same node to the network, and the traffic of the YggMesh nodes goes to whichever of them the network finds.
 
-## Connecting a YggMesh network (NAT64)
-Build the [YggMesh](https://github.com/ed-asriyan/YggMesh) firmware with `CLEARNET_EXITS` set to the Yggdrasil address from step 3 or the domain from step 4 (several exits can be listed: each node uses the fastest working one). If `EXIT_USERS` is set, add the Yggdrasil address of every node to it.
+## Connecting a YggMesh network
+Put the **public key** of this exit (the last 64 hex digits of `YGG_PRIV_KEY`) into the exits of the YggMesh nodes: the `clearnet_exits` build input, or Clearnet → Exits on the YggMesh page of a node. Several exits can be listed: each node uses the fastest working one.
 
-How it works: a YggMesh node translates its clients' IPv4 packets into IPv6 packets addressed to `<this exit's Yggdrasil /64 subnet>::<IPv4 address>`. Yggdrasil routes the subnet to this exit, where TAYGA translates the packets back into IPv4 and they leave from the server's IP. Nothing but the Yggdrasil address has to be shared.
+How it works: Yggdrasil-ng's [Crypto-Key Routing](https://github.com/Revertron/Yggdrasil-ng/blob/master/docs/CKR.md) (CKR). A YggMesh node masquerades its clients' IPv4 to its own address, `100.64.0.0/10` plus the last 22 bits of its public key, and sends it over Yggdrasil to the public key of the exit. This exit derives the same address from every key in `EXIT_USERS` and accepts a node's packets only from that address, after Yggdrasil has checked they come from the node's key. They leave masqueraded to the server's IP. Nothing but the public keys has to be exchanged.
 
-Safety: translated traffic can reach public IPv4 addresses only, private ranges (the Docker host, its networks, `10.0.0.0/8`, `192.168.0.0/16`, ...) are blocked.
+Two nodes may get the same address (about 0.1% for 100 users of one exit). The exit then refuses to start and names both keys: only one of them can use it, unless the other one changes its key.
 
-Restarts: if the `yggdrasil` container restarts, the NAT64 container notices within 10 seconds that its network namespace is gone and restarts too, so it joins the new one.
+Safety: the users reach public IPv4 addresses only: private ranges (the Docker host, its networks, `10.0.0.0/8`, `192.168.0.0/16`, the other users in `100.64.0.0/10`, ...) are blocked, and IPv6 is not forwarded.
 
 ## Publishing the image (forks)
 The [workflow](.github/workflows/image.yml) publishes `ghcr.io/<owner>/yggdrasil-clearnet-proxy:latest` with the repository's `GITHUB_TOKEN` and deletes every other version of the package. After the first run:

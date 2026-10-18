@@ -1,4 +1,4 @@
-name: Build NAT64 image
+name: Build exit image
 
 # Every push to master rebuilds ghcr.io/<owner>/yggdrasil-clearnet-proxy:latest
 # and deletes everything else from the package: only "latest" is kept.
