@@ -1,7 +1,12 @@
-name: yggdrasil-clearnet-proxy
+name: yggmesh-exit-node
 services:
-  yggdrasil:
-    image: ghcr.io/yggdrasil-network/yggdrasil-go:latest
+  # Clearnet exit for YggMesh nodes, see exit.sh: Yggdrasil-ng routes the IPv4
+  # of the nodes listed in EXIT_USERS here (Crypto-Key Routing), it leaves
+  # masqueraded to the server's IP.
+  exit:
+    image: ghcr.io/ed-asriyan/yggmesh-exit-node:latest
+    # Only "latest" is published, so always check for a newer one on "up"
+    pull_policy: always
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
@@ -9,58 +14,10 @@ services:
       - /dev/net/tun:/dev/net/tun
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=0
-      # This container owns the network namespace shared by all services,
-      # forwarding is required by the NAT64 service
       - net.ipv4.ip_forward=1
-      - net.ipv6.conf.all.forwarding=1
     environment:
       - YGG_PRIV_KEY=${YGG_PRIV_KEY:?YGG_PRIV_KEY is required}
       - YGG_PEERS=${YGG_PEERS:?YGG_PEERS is required}
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        echo "Generating base config..."
-        mkdir -p /etc/yggdrasil
-        yggdrasil -genconf > /etc/yggdrasil/yggdrasil.conf
-        
-        if [ -n "$$YGG_PRIV_KEY" ]; then
-          echo "Syncing YGG_PRIV_KEY..."
-          sed -i "s|^\s*PrivateKey:.*|  PrivateKey: $$YGG_PRIV_KEY|g" /etc/yggdrasil/yggdrasil.conf
-        fi
-
-        cat /etc/yggdrasil/yggdrasil.conf
-
-        if [ -n "$$YGG_PEERS" ]; then
-          echo "Syncing peers from YGG_PEERS..."
-          LIST=""
-          for p in $$YGG_PEERS; do
-            LIST="$$LIST \"$$p\","
-          done
-          sed -i "s|Peers:\s*\[.*\]|Peers: [$$LIST]|g" /etc/yggdrasil/yggdrasil.conf
-        fi
-        
-        exec yggdrasil -useconffile /etc/yggdrasil/yggdrasil.conf
-
-  # NAT64 exit for YggMesh nodes (CLEARNET_EXITS build input of YggMesh), see
-  # nat64.sh. The NAT64 prefix is this node's Yggdrasil /64 subnet followed by
-  # 32 zero bits: <subnet>::a.b.c.d is translated to the IPv4 address a.b.c.d.
-  nat64:
-    image: ghcr.io/ed-asriyan/yggdrasil-clearnet-proxy:latest
-    # Only "latest" is published, so always check for a newer one on "up"
-    pull_policy: always
-    restart: unless-stopped
-    network_mode: "service:yggdrasil"
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun:/dev/net/tun
-    environment:
-      # Space-separated Yggdrasil addresses (200::/8) of the YggMesh nodes allowed
-      # to use this exit. Empty: everyone is allowed.
-      - EXIT_USERS=${EXIT_USERS:-}
-    depends_on:
-      - yggdrasil
-
-volumes:
-  ygg-config:
+      - YGG_LISTEN=${YGG_LISTEN:-}
+      # Space-separated public keys of the YggMesh nodes allowed to use this exit
+      - EXIT_USERS=${EXIT_USERS:?EXIT_USERS is required}
