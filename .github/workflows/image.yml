@@ -25,7 +25,9 @@ jobs:
 
       - name: Image name
         id: image
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "package=${GITHUB_REPOSITORY#*/}" | tr '[:upper:]' '[:lower:]' >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -54,5 +56,5 @@ jobs:
       - name: Delete old versions
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
-          package: ${{ github.event.repository.name }}
+          package: ${{ steps.image.outputs.package }}
           delete-untagged: true
